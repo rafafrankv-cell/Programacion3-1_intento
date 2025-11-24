@@ -1,24 +1,31 @@
-FROM php:8.2-fpm
+# Usa CLI, no FPM
+FROM php:8.2-cli
 
 # Instalar extensiones necesarias
 RUN apt-get update && apt-get install -y \
-    git unzip libicu-dev libzip-dev libpng-dev libonig-dev \
- && docker-php-ext-install intl pdo pdo_mysql zip gd
+    git \
+    unzip \
+    libicu-dev \
+    libzip-dev \
+    libpng-dev \
+    libonig-dev \
+    libpq-dev \
+ && docker-php-ext-install intl pdo pdo_mysql pdo_pgsql zip gd
 
 # Instalar Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Copiar proyecto
+# Directorio de trabajo
 WORKDIR /var/www/html
+
+# Copiar todo el proyecto
 COPY . .
 
-# Instalar dependencias de Symfony
-RUN composer install --no-dev --optimize-autoloader
+# Instalar dependencias SIN ejecutar scripts (evita error de DATABASE_URL)
+RUN composer install --no-dev --optimize-autoloader --no-scripts
 
-# Dar permisos
-RUN chown -R www-data:www-data /var/www/html \
- && chmod -R 775 /var/www/html/var
+# El servidor escuchará en $PORT (definido por Render)
+EXPOSE 8000
 
-EXPOSE 9000
-
-CMD ["php-fpm"]
+# Iniciar: primero clear cache (ya con DATABASE_URL disponible), luego servidor
+CMD php bin/console cache:clear --env=prod && php -S 0.0.0.0:$PORT -t public/
