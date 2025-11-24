@@ -1,6 +1,6 @@
 FROM php:8.2-apache
 
-# Instalar dependencias necesarias
+# Instalar extensiones necesarias
 RUN apt-get update && apt-get install -y \
     git \
     unzip \
@@ -15,10 +15,15 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 # Activar mod_rewrite
 RUN a2enmod rewrite
 
-# Copiar archivos del proyecto
+# Copiar proyecto
 COPY . /var/www/html/
 
-# Establecer public/ como DocumentRoot de Apache
+WORKDIR /var/www/html
+
+# Instalar dependencias (INCLUYE DEV porque MakerBundle lo necesita)
+RUN composer install --optimize-autoloader
+
+# Configurar DocumentRoot a public/
 ENV APACHE_DOCUMENT_ROOT /var/www/html/public
 
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' \
@@ -26,10 +31,6 @@ RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' \
 
 RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' \
     /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
-
-# Instalar dependencias de Symfony
-WORKDIR /var/www/html
-RUN composer install --no-dev --optimize-autoloader
 
 # Permisos
 RUN chown -R www-data:www-data /var/www/html
