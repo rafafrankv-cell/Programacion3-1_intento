@@ -1,38 +1,24 @@
-FROM php:8.2-apache
+FROM php:8.2-fpm
 
 # Instalar extensiones necesarias
 RUN apt-get update && apt-get install -y \
-    git \
-    unzip \
-    libicu-dev \
-    libzip-dev \
-    zip \
-    && docker-php-ext-install intl pdo pdo_mysql zip
+    git unzip libicu-dev libzip-dev libpng-dev libonig-dev \
+ && docker-php-ext-install intl pdo pdo_mysql zip gd
 
 # Instalar Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Activar mod_rewrite
-RUN a2enmod rewrite
-
 # Copiar proyecto
-COPY . /var/www/html/
-
 WORKDIR /var/www/html
+COPY . .
 
-# Instalar dependencias (INCLUYE DEV porque MakerBundle lo necesita)
-RUN composer install --optimize-autoloader
+# Instalar dependencias de Symfony
+RUN composer install --no-dev --optimize-autoloader
 
-# Configurar DocumentRoot a public/
-ENV APACHE_DOCUMENT_ROOT /var/www/html/public
+# Dar permisos
+RUN chown -R www-data:www-data /var/www/html \
+ && chmod -R 775 /var/www/html/var
 
-RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' \
-    /etc/apache2/sites-available/*.conf
+EXPOSE 9000
 
-RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' \
-    /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
-
-# Permisos
-RUN chown -R www-data:www-data /var/www/html
-
-EXPOSE 80
+CMD ["php-fpm"]
