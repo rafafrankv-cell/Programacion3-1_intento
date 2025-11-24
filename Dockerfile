@@ -1,6 +1,6 @@
 FROM php:8.2-apache
 
-# Instalar extensiones necesarias para Symfony
+# Instalar dependencias necesarias
 RUN apt-get update && apt-get install -y \
     git \
     unzip \
@@ -15,14 +15,18 @@ RUN a2enmod rewrite
 # Copiar archivos del proyecto
 COPY . /var/www/html/
 
-# Establecer carpeta public como raíz del servidor web
-WORKDIR /var/www/html/
+# Establecer public/ como DocumentRoot de Apache
+ENV APACHE_DOCUMENT_ROOT /var/www/html/public
 
-# Mover la carpeta public/ al DocumentRoot
-RUN rm -rf /var/www/html/html && \
-    ln -s /var/www/html/public /var/www/html/html
+RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' \
+    /etc/apache2/sites-available/*.conf
 
-# Dar permisos
+RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' \
+    /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
+
+# Permisos
 RUN chown -R www-data:www-data /var/www/html
+
+WORKDIR /var/www/html
 
 EXPOSE 80
